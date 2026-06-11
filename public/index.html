@@ -315,18 +315,15 @@
 <body>
 
 <div class="container">
-  <!-- Header -->
   <div class="header">
     <span class="firework-icon">🎆</span>
     <h1>Ước Nguyện Pháo Hoa</h1>
     <p>Gửi điều ước của bạn lên bầu trời đêm nay ✨</p>
   </div>
 
-  <!-- Form -->
   <div id="formSection">
     <div class="error-msg" id="errorMsg"></div>
 
-    <!-- Photo upload -->
     <div class="photo-section">
       <div class="photo-preview" id="photoPreview" onclick="document.getElementById('photoInput').click()">
         <div class="photo-placeholder" id="photoPlaceholder">
@@ -341,19 +338,16 @@
       <input type="file" id="photoInput" accept="image/*" capture="user" onchange="handlePhoto(this)">
     </div>
 
-    <!-- Name -->
     <div class="form-group">
       <label>Họ và tên <span class="required">*</span></label>
       <input type="text" id="name" placeholder="Nhập họ và tên của bạn" autocomplete="name" maxlength="100">
     </div>
 
-    <!-- Phone -->
     <div class="form-group">
       <label>Số điện thoại</label>
       <input type="tel" id="phone" placeholder="0xxxxxxxxx" autocomplete="tel" maxlength="15">
     </div>
 
-    <!-- Wish -->
     <div class="form-group">
       <label>Điều ước của bạn <span class="required">*</span></label>
       <textarea id="wish" placeholder="Hãy viết điều ước từ trái tim bạn..." maxlength="300" oninput="updateCount(this)"></textarea>
@@ -365,13 +359,11 @@
     </button>
   </div>
 
-  <!-- Loading -->
   <div class="loading" id="loadingSection">
     <div class="spinner"></div>
     Đang gửi điều ước của bạn...
   </div>
 
-  <!-- Success -->
   <div class="success-screen" id="successSection">
     <span class="success-fireworks">🎆</span>
     <h2>Ước nguyện đã bay lên!</h2>
@@ -444,6 +436,15 @@ async function submitWish() {
 
   try {
     const res  = await fetch('/submit', { method: 'POST', body: formData });
+    
+    // --- ĐOẠN CODE ĐÃ ĐƯỢC CẬP NHẬT ĐỂ BẮT LỖI VERCEL ---
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+        console.error("Lỗi từ server:", await res.text());
+        throw new Error('Hệ thống đang cập nhật máy chủ. Vui lòng đợi khoảng 1 phút rồi bấm gửi lại nhé!');
+    }
+    // ----------------------------------------------------
+
     const data = await res.json();
 
     if (data.success) {
