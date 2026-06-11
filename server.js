@@ -1,18 +1,18 @@
-// server.js — Hỗ trợ chạy local và Vercel (chỉ dùng built-in Node.js)
+// server.js — Phiên bản chuẩn Serverless (Hỗ trợ Local & Vercel)
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const url  = require('url');
 
-// Xác định môi trường chạy
-const isVercel  = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
-const PORT      = process.env.PORT || 3000;
+// Xác định môi trường: Nếu chạy trực tiếp bằng lệnh 'node server.js' thì là local
+const isLocal = require.main === module;
+const PORT    = process.env.PORT || 3000;
 
-const PUBLIC    = path.join(__dirname, 'public');
+const PUBLIC  = path.join(__dirname, 'public');
 
-// Vercel chỉ cho phép ghi vào /tmp, ở local giữ nguyên cấu trúc
-const DATA_DIR   = isVercel ? '/tmp/data' : path.join(__dirname, 'data');
-const UPLOAD_DIR = isVercel ? '/tmp/uploads' : path.join(__dirname, 'public', 'uploads');
+// Vercel chỉ cho phép ghi vào /tmp
+const DATA_DIR   = isLocal ? path.join(__dirname, 'data') : '/tmp/data';
+const UPLOAD_DIR = isLocal ? path.join(__dirname, 'public', 'uploads') : '/tmp/uploads';
 const DATA_FILE  = path.join(DATA_DIR, 'wishes.json');
 
 // Đảm bảo thư mục tồn tại
@@ -53,7 +53,7 @@ function parseMultipart(buffer, boundary) {
   const parts  = [];
 
   let start = 0;
-  let limit = 0; // Fail-safe: Chống vòng lặp vô hạn
+  let limit = 0; // Fail-safe: Chống vòng lặp vô hạn làm treo server
   while (start < buffer.length && limit < 1000) {
     limit++;
     const idx = buffer.indexOf(sep, start);
@@ -96,7 +96,7 @@ function parseMultipart(buffer, boundary) {
   return { fields, files };
 }
 
-// Server
+// Khởi tạo Server Logic
 const server = http.createServer((req, res) => {
   const parsed   = url.parse(req.url, true);
   const pathname = parsed.pathname;
@@ -267,11 +267,8 @@ const server = http.createServer((req, res) => {
               const res = await fetch('/api');
               const contentType = res.headers.get('content-type');
               
-              // Bắt lỗi nếu Vercel không trả về JSON mà trả về HTML báo lỗi
               if (!contentType || !contentType.includes('application/json')) {
-                const text = await res.text();
-                console.error("Lỗi server trả về HTML:", text);
-                document.getElementById('wish-list').innerHTML = '<tr><td colspan="6" style="color:red; text-align:center; padding: 20px;"><b>🚨 LỖI MÁY CHỦ VERCEL!</b><br>Hệ thống không thể tải dữ liệu JSON. Quá trình Deploy (Build) của bạn có thể đang bị lỗi hoặc chưa hoàn thành.<br><br>👉 Hãy kiểm tra lại tab <b>Deployments</b> trên Vercel.</td></tr>';
+                document.getElementById('wish-list').innerHTML = '<tr><td colspan="6" style="color:red; text-align:center; padding: 20px;"><b>🚨 LỖI MÁY CHỦ VERCEL!</b><br>Quá trình Deploy (Build) của bạn đang bị lỗi. Hãy kiểm tra lại mã nguồn.</td></tr>';
                 return;
               }
 
@@ -347,7 +344,6 @@ const server = http.createServer((req, res) => {
             document.body.removeChild(link);
           }
 
-          // Khởi chạy khi mở trang
           loadWishes();
         </script>
       </body>
@@ -399,21 +395,25 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// Xuất server cho Vercel hoặc chạy trực tiếp trên Local
-if (isVercel) {
-  module.exports = (req, res) => {
-    server.emit('request', req, res);
-  };
-} else {
+// XUẤT SERVER CHO VERCEL HOẶC LOCAL
+if (isLocal) {
   server.listen(PORT, () => {
     console.log('');
-    console.log('  🎆 Ước Nguyện Pháo Hoa đang chạy!');
-    console.log('');
+    console.log('  🎆 Ước Nguyện Pháo Hoa đang chạy (LOCAL)!');
     console.log('  📱 Trang form: http://localhost:' + PORT + '/');
     console.log('  🎇 Màn hình LED: http://localhost:' + PORT + '/show.html');
     console.log('  ⚙️  Trang Quản trị: http://localhost:' + PORT + '/admin');
     console.log('');
-    console.log('  Nhấn Ctrl+C để dừng server');
-    console.log('');
   });
+} else {
+  // BẮT BUỘC CÓ: Tắt Body Parser mặc định của Vercel để không bị sập (500 Error) khi Upload Ảnh
+  const handler = (req, res) => {
+    server.emit('request', req, res);
+  };
+  handler.config = {
+    api: {
+      bodyParser: false,
+    },
+  };
+  module.exports = handler;
 }
