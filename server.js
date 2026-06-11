@@ -153,7 +153,6 @@ const server = http.createServer((req, res) => {
         const filename = 'photo_' + Date.now() + '_' + Math.random().toString(36).slice(2) + ext;
         const dest     = path.join(UPLOAD_DIR, filename);
         fs.writeFileSync(dest, files.photo.data);
-        // Dùng đường dẫn tương đối thay vì hardcode localhost để chạy tốt trên môi trường deploy
         photoUrl = '/uploads/' + filename;
       }
 
@@ -183,13 +182,133 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ── API XÓA BẰNG ID ───────────────────────────────────────────
+  if (req.method === 'POST' && pathname === '/delete') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { id } = JSON.parse(body);
+        let wishes = readWishes();
+        const initialLength = wishes.length;
+        
+        wishes = wishes.filter(w => w.id !== id);
+        
+        if (wishes.length < initialLength) {
+          writeWishes(wishes);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+        } else {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Không tìm thấy dữ liệu' }));
+        }
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Lỗi xử lý yêu cầu' }));
+      }
+    });
+    return;
+  }
+
+  // ── TRANG ADMIN QUẢN LÝ TÍCH HỢP SẴN ───────────────────────────
+  if (req.method === 'GET' && pathname === '/admin') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`
+      <!DOCTYPE html>
+      <html lang="vi">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Quản Trị Pháo Hoa</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; padding: 20px; }
+          .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+          th { background-color: #007bff; color: white; }
+          .btn-delete { background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+          .btn-delete:hover { background: #c82333; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2>⚙️ Bảng Điều Khiển Lời Chúc</h2>
+          <p>Danh sách các lời chúc đang hiển thị trên màn hình LED. Bấm xóa để loại bỏ ngay lập tức.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Họ và Tên</th>
+                <th>Điều ước</th>
+                <th>Thời gian gửi</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="wish-list">
+              <tr><td colspan="4" style="text-align:center;">Đang tải dữ liệu...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <script>
+          async function loadWishes() {
+            try {
+              const res = await fetch('/api');
+              const data = await res.json();
+              const list = document.getElementById('wish-list');
+              
+              if (data.wishes.length === 0) {
+                list.innerHTML = '<tr><td colspan="4" style="text-align:center;">Chưa có dữ liệu nào.</td></tr>';
+                return;
+              }
+
+              list.innerHTML = data.wishes.map(w => 
+                '<tr>' +
+                  '<td><b>' + w.name + '</b></td>' +
+                  '<td>' + w.wish + '</td>' +
+                  '<td>' + new Date(w.time).toLocaleString('vi-VN') + '</td>' +
+                  '<td><button class="btn-delete" onclick="deleteWish(\\'' + w.id + '\\')">🗑 Xóa</button></td>' +
+                '</tr>'
+              ).join('');
+            } catch (err) {
+              alert('Lỗi khi tải dữ liệu!');
+            }
+          }
+
+          async function deleteWish(id) {
+            if (!confirm('Bạn có chắc chắn muốn xóa lời chúc này không? Hành động này không thể hoàn tác.')) return;
+            
+            try {
+              const res = await fetch('/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+              });
+              const result = await res.json();
+              
+              if (result.success) {
+                loadWishes(); // Tải lại danh sách
+              } else {
+                alert('Lỗi: ' + result.error);
+              }
+            } catch (err) {
+              alert('Không thể kết nối đến máy chủ.');
+            }
+          }
+
+          // Khởi chạy khi mở trang
+          loadWishes();
+        </script>
+      </body>
+      </html>
+    `);
+    return;
+  }
+
   // ── GET /uploads ──────────────────────────────────────────────
-  // Phục vụ ảnh động từ thư mục tương ứng
   if (req.method === 'GET' && pathname.startsWith('/uploads/')) {
     const filename = pathname.replace('/uploads/', '');
     const filePath = path.join(UPLOAD_DIR, filename);
 
-    // Bảo vệ path traversal
     if (!filePath.startsWith(UPLOAD_DIR)) {
         res.writeHead(403); res.end('Forbidden'); return;
     }
@@ -211,7 +330,6 @@ const server = http.createServer((req, res) => {
   // ── Static files ──────────────────────────────────────────────
   let filePath = path.join(PUBLIC, pathname === '/' ? 'index.html' : pathname);
 
-  // Bảo vệ path traversal
   if (!filePath.startsWith(PUBLIC)) {
     res.writeHead(403); res.end('Forbidden'); return;
   }
@@ -241,6 +359,7 @@ if (isVercel) {
     console.log('');
     console.log('  📱 Trang form: http://localhost:' + PORT + '/');
     console.log('  🎇 Màn hình LED: http://localhost:' + PORT + '/show.html');
+    console.log('  ⚙️  Trang Quản trị: http://localhost:' + PORT + '/admin');
     console.log('');
     console.log('  Nhấn Ctrl+C để dừng server');
     console.log('');
