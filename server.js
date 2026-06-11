@@ -110,6 +110,7 @@ const server = http.createServer((req, res) => {
     const safe   = wishes.map(w => ({
       id:    w.id,
       name:  w.name,
+      phone: w.phone, // <--- Cập nhật: Cho phép API trả về số điện thoại
       wish:  w.wish,
       photo: w.photo,
       time:  w.time,
@@ -222,53 +223,70 @@ const server = http.createServer((req, res) => {
         <title>Quản Trị Pháo Hoa</title>
         <style>
           body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; padding: 20px; }
-          .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-          h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+          .container { max-width: 1100px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          .header-flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+          h2 { color: #333; margin: 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: middle; }
           th { background-color: #007bff; color: white; }
           .btn-delete { background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
           .btn-delete:hover { background: #c82333; }
+          .btn-export { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+          .btn-export:hover { background: #218838; }
+          .img-preview { max-height: 60px; border-radius: 4px; cursor: pointer; }
         </style>
       </head>
       <body>
         <div class="container">
-          <h2>⚙️ Bảng Điều Khiển Lời Chúc</h2>
-          <p>Danh sách các lời chúc đang hiển thị trên màn hình LED. Bấm xóa để loại bỏ ngay lập tức.</p>
+          <div class="header-flex">
+            <h2>⚙️ Bảng Điều Khiển Lời Chúc</h2>
+            <button class="btn-export" onclick="exportToExcel()">📊 Xuất File Excel</button>
+          </div>
+          <p>Danh sách chi tiết các lời chúc đang hiển thị trên màn hình LED.</p>
           <table>
             <thead>
               <tr>
                 <th>Họ và Tên</th>
-                <th>Điều ước</th>
+                <th>SĐT</th>
+                <th style="width: 40%">Điều ước</th>
+                <th>Hình ảnh</th>
                 <th>Thời gian gửi</th>
                 <th>Thao tác</th>
               </tr>
             </thead>
             <tbody id="wish-list">
-              <tr><td colspan="4" style="text-align:center;">Đang tải dữ liệu...</td></tr>
+              <tr><td colspan="6" style="text-align:center;">Đang tải dữ liệu...</td></tr>
             </tbody>
           </table>
         </div>
         <script>
+          let currentData = [];
+
           async function loadWishes() {
             try {
               const res = await fetch('/api');
               const data = await res.json();
+              currentData = data.wishes;
               const list = document.getElementById('wish-list');
               
-              if (data.wishes.length === 0) {
-                list.innerHTML = '<tr><td colspan="4" style="text-align:center;">Chưa có dữ liệu nào.</td></tr>';
+              if (currentData.length === 0) {
+                list.innerHTML = '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu nào.</td></tr>';
                 return;
               }
 
-              list.innerHTML = data.wishes.map(w => 
-                '<tr>' +
+              list.innerHTML = currentData.map(w => {
+                let imgHtml = w.photo ? '<a href="' + w.photo + '" target="_blank"><img class="img-preview" src="' + w.photo + '" alt="Ảnh"></a>' : '<span style="color:#999; font-size:13px">Không có</span>';
+                let phoneText = w.phone ? w.phone : '<span style="color:#999; font-size:13px">Trống</span>';
+                
+                return '<tr>' +
                   '<td><b>' + w.name + '</b></td>' +
+                  '<td>' + phoneText + '</td>' +
                   '<td>' + w.wish + '</td>' +
+                  '<td style="text-align:center;">' + imgHtml + '</td>' +
                   '<td>' + new Date(w.time).toLocaleString('vi-VN') + '</td>' +
                   '<td><button class="btn-delete" onclick="deleteWish(\\'' + w.id + '\\')">🗑 Xóa</button></td>' +
-                '</tr>'
-              ).join('');
+                '</tr>';
+              }).join('');
             } catch (err) {
               alert('Lỗi khi tải dữ liệu!');
             }
@@ -276,7 +294,6 @@ const server = http.createServer((req, res) => {
 
           async function deleteWish(id) {
             if (!confirm('Bạn có chắc chắn muốn xóa lời chúc này không? Hành động này không thể hoàn tác.')) return;
-            
             try {
               const res = await fetch('/delete', {
                 method: 'POST',
@@ -284,15 +301,42 @@ const server = http.createServer((req, res) => {
                 body: JSON.stringify({ id })
               });
               const result = await res.json();
-              
-              if (result.success) {
-                loadWishes(); // Tải lại danh sách
-              } else {
-                alert('Lỗi: ' + result.error);
-              }
+              if (result.success) loadWishes(); 
+              else alert('Lỗi: ' + result.error);
             } catch (err) {
               alert('Không thể kết nối đến máy chủ.');
             }
+          }
+
+          function exportToExcel() {
+            if (currentData.length === 0) {
+              alert('Không có dữ liệu để xuất!');
+              return;
+            }
+
+            // Dùng BOM (\\uFEFF) để báo cho Excel biết đây là file UTF-8, giúp Tiếng Việt không bị lỗi
+            let csvContent = "\\uFEFFHọ và Tên,Số điện thoại,Điều ước,Hình ảnh (Link),Thời gian gửi\\n";
+            
+            currentData.forEach(w => {
+              // Bao bọc chuỗi trong dấu ngoặc kép và escape các dấu ngoặc kép bên trong để tránh vỡ cột CSV
+              let name = '"' + (w.name || '').replace(/"/g, '""') + '"';
+              let phone = '"' + (w.phone || '').replace(/"/g, '""') + '"';
+              let wish = '"' + (w.wish || '').replace(/"/g, '""') + '"';
+              let photo = w.photo ? '"' + window.location.origin + w.photo + '"' : '"Không có"';
+              let time = '"' + new Date(w.time).toLocaleString('vi-VN') + '"';
+              
+              csvContent += name + ',' + phone + ',' + wish + ',' + photo + ',' + time + '\\n';
+            });
+
+            // Tạo và tải xuống file CSV
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", "DanhSachLoiChuc_PhaoHoa.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
           }
 
           // Khởi chạy khi mở trang
