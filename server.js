@@ -1,18 +1,18 @@
-// server.js — Phiên bản chuẩn Serverless (Hỗ trợ Local & Vercel)
+// server.js — Hỗ trợ chạy local và Vercel (chỉ dùng built-in Node.js)
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const url  = require('url');
 
-// Xác định môi trường: Nếu chạy trực tiếp bằng lệnh 'node server.js' thì là local
-const isLocal = require.main === module;
-const PORT    = process.env.PORT || 3000;
+// Xác định môi trường chạy
+const isVercel  = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+const PORT      = process.env.PORT || 3000;
 
-const PUBLIC  = path.join(__dirname, 'public');
+const PUBLIC    = path.join(__dirname, 'public');
 
-// Vercel chỉ cho phép ghi vào /tmp
-const DATA_DIR   = isLocal ? path.join(__dirname, 'data') : '/tmp/data';
-const UPLOAD_DIR = isLocal ? path.join(__dirname, 'public', 'uploads') : '/tmp/uploads';
+// Vercel chỉ cho phép ghi vào /tmp, ở local giữ nguyên cấu trúc
+const DATA_DIR   = isVercel ? '/tmp/data' : path.join(__dirname, 'data');
+const UPLOAD_DIR = isVercel ? '/tmp/uploads' : path.join(__dirname, 'public', 'uploads');
 const DATA_FILE  = path.join(DATA_DIR, 'wishes.json');
 
 // Đảm bảo thư mục tồn tại
@@ -53,7 +53,7 @@ function parseMultipart(buffer, boundary) {
   const parts  = [];
 
   let start = 0;
-  let limit = 0; // Fail-safe: Chống vòng lặp vô hạn làm treo server
+  let limit = 0; // Fail-safe: Chống vòng lặp vô hạn
   while (start < buffer.length && limit < 1000) {
     limit++;
     const idx = buffer.indexOf(sep, start);
@@ -96,7 +96,7 @@ function parseMultipart(buffer, boundary) {
   return { fields, files };
 }
 
-// Khởi tạo Server Logic
+// Server
 const server = http.createServer((req, res) => {
   const parsed   = url.parse(req.url, true);
   const pathname = parsed.pathname;
@@ -110,7 +110,6 @@ const server = http.createServer((req, res) => {
     const safe   = wishes.map(w => ({
       id:    w.id,
       name:  w.name,
-      phone: w.phone,
       wish:  w.wish,
       photo: w.photo,
       time:  w.time,
@@ -223,85 +222,61 @@ const server = http.createServer((req, res) => {
         <title>Quản Trị Pháo Hoa</title>
         <style>
           body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; padding: 20px; }
-          .container { max-width: 1100px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-          .header-flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
-          h2 { color: #333; margin: 0; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th, td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: middle; }
+          .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
           th { background-color: #007bff; color: white; }
           .btn-delete { background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
           .btn-delete:hover { background: #c82333; }
-          .btn-export { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
-          .btn-export:hover { background: #218838; }
-          .img-preview { max-height: 60px; border-radius: 4px; cursor: pointer; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="header-flex">
-            <h2>⚙️ Bảng Điều Khiển Lời Chúc</h2>
-            <button class="btn-export" onclick="exportToExcel()">📊 Xuất File Excel</button>
-          </div>
-          <p>Danh sách chi tiết các lời chúc đang hiển thị trên màn hình LED.</p>
+          <h2>⚙️ Bảng Điều Khiển Lời Chúc</h2>
+          <p>Danh sách các lời chúc đang hiển thị trên màn hình LED. Bấm xóa để loại bỏ ngay lập tức.</p>
           <table>
             <thead>
               <tr>
                 <th>Họ và Tên</th>
-                <th>SĐT</th>
-                <th style="width: 40%">Điều ước</th>
-                <th>Hình ảnh</th>
+                <th>Điều ước</th>
                 <th>Thời gian gửi</th>
                 <th>Thao tác</th>
               </tr>
             </thead>
             <tbody id="wish-list">
-              <tr><td colspan="6" style="text-align:center;">Đang tải dữ liệu...</td></tr>
+              <tr><td colspan="4" style="text-align:center;">Đang tải dữ liệu...</td></tr>
             </tbody>
           </table>
         </div>
         <script>
-          let currentData = [];
-
           async function loadWishes() {
             try {
               const res = await fetch('/api');
-              const contentType = res.headers.get('content-type');
-              
-              if (!contentType || !contentType.includes('application/json')) {
-                document.getElementById('wish-list').innerHTML = '<tr><td colspan="6" style="color:red; text-align:center; padding: 20px;"><b>🚨 LỖI MÁY CHỦ VERCEL!</b><br>Quá trình Deploy (Build) của bạn đang bị lỗi. Hãy kiểm tra lại mã nguồn.</td></tr>';
-                return;
-              }
-
               const data = await res.json();
-              currentData = data.wishes;
               const list = document.getElementById('wish-list');
               
-              if (currentData.length === 0) {
-                list.innerHTML = '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu nào.</td></tr>';
+              if (data.wishes.length === 0) {
+                list.innerHTML = '<tr><td colspan="4" style="text-align:center;">Chưa có dữ liệu nào.</td></tr>';
                 return;
               }
 
-              list.innerHTML = currentData.map(w => {
-                let imgHtml = w.photo ? '<a href="' + w.photo + '" target="_blank"><img class="img-preview" src="' + w.photo + '" alt="Ảnh"></a>' : '<span style="color:#999; font-size:13px">Không có</span>';
-                let phoneText = w.phone ? w.phone : '<span style="color:#999; font-size:13px">Trống</span>';
-                
-                return '<tr>' +
+              list.innerHTML = data.wishes.map(w => 
+                '<tr>' +
                   '<td><b>' + w.name + '</b></td>' +
-                  '<td>' + phoneText + '</td>' +
                   '<td>' + w.wish + '</td>' +
-                  '<td style="text-align:center;">' + imgHtml + '</td>' +
                   '<td>' + new Date(w.time).toLocaleString('vi-VN') + '</td>' +
                   '<td><button class="btn-delete" onclick="deleteWish(\\'' + w.id + '\\')">🗑 Xóa</button></td>' +
-                '</tr>';
-              }).join('');
+                '</tr>'
+              ).join('');
             } catch (err) {
-              console.error(err);
-              document.getElementById('wish-list').innerHTML = '<tr><td colspan="6" style="color:red; text-align:center;">Đã xảy ra lỗi mạng khi tải dữ liệu!</td></tr>';
+              alert('Lỗi khi tải dữ liệu!');
             }
           }
 
           async function deleteWish(id) {
             if (!confirm('Bạn có chắc chắn muốn xóa lời chúc này không? Hành động này không thể hoàn tác.')) return;
+            
             try {
               const res = await fetch('/delete', {
                 method: 'POST',
@@ -309,41 +284,18 @@ const server = http.createServer((req, res) => {
                 body: JSON.stringify({ id })
               });
               const result = await res.json();
-              if (result.success) loadWishes(); 
-              else alert('Lỗi: ' + result.error);
+              
+              if (result.success) {
+                loadWishes(); // Tải lại danh sách
+              } else {
+                alert('Lỗi: ' + result.error);
+              }
             } catch (err) {
               alert('Không thể kết nối đến máy chủ.');
             }
           }
 
-          function exportToExcel() {
-            if (currentData.length === 0) {
-              alert('Không có dữ liệu để xuất!');
-              return;
-            }
-
-            let csvContent = "\\uFEFFHọ và Tên,Số điện thoại,Điều ước,Hình ảnh (Link),Thời gian gửi\\n";
-            
-            currentData.forEach(w => {
-              let name = '"' + (w.name || '').replace(/"/g, '""') + '"';
-              let phone = '"' + (w.phone || '').replace(/"/g, '""') + '"';
-              let wish = '"' + (w.wish || '').replace(/"/g, '""') + '"';
-              let photo = w.photo ? '"' + window.location.origin + w.photo + '"' : '"Không có"';
-              let time = '"' + new Date(w.time).toLocaleString('vi-VN') + '"';
-              
-              csvContent += name + ',' + phone + ',' + wish + ',' + photo + ',' + time + '\\n';
-            });
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.setAttribute("href", url);
-            link.setAttribute("download", "DanhSachLoiChuc_PhaoHoa.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }
-
+          // Khởi chạy khi mở trang
           loadWishes();
         </script>
       </body>
@@ -395,25 +347,21 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// XUẤT SERVER CHO VERCEL HOẶC LOCAL
-if (isLocal) {
+// Xuất server cho Vercel hoặc chạy trực tiếp trên Local
+if (isVercel) {
+  module.exports = (req, res) => {
+    server.emit('request', req, res);
+  };
+} else {
   server.listen(PORT, () => {
     console.log('');
-    console.log('  🎆 Ước Nguyện Pháo Hoa đang chạy (LOCAL)!');
+    console.log('  🎆 Ước Nguyện Pháo Hoa đang chạy!');
+    console.log('');
     console.log('  📱 Trang form: http://localhost:' + PORT + '/');
     console.log('  🎇 Màn hình LED: http://localhost:' + PORT + '/show.html');
     console.log('  ⚙️  Trang Quản trị: http://localhost:' + PORT + '/admin');
     console.log('');
+    console.log('  Nhấn Ctrl+C để dừng server');
+    console.log('');
   });
-} else {
-  // BẮT BUỘC CÓ: Tắt Body Parser mặc định của Vercel để không bị sập (500 Error) khi Upload Ảnh
-  const handler = (req, res) => {
-    server.emit('request', req, res);
-  };
-  handler.config = {
-    api: {
-      bodyParser: false,
-    },
-  };
-  module.exports = handler;
 }
