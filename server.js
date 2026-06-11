@@ -1,17 +1,23 @@
-// server.js — Chỉ dùng built-in Node.js, không cần npm install gì
+// server.js — Hỗ trợ chạy local và Vercel (chỉ dùng built-in Node.js)
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const url  = require('url');
 
-const PORT      = 3000;
+// Xác định môi trường chạy
+const isVercel  = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+const PORT      = process.env.PORT || 3000;
+
 const PUBLIC    = path.join(__dirname, 'public');
-const DATA_FILE = path.join(__dirname, 'data', 'wishes.json');
-const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
+
+// Vercel chỉ cho phép ghi vào /tmp, ở local giữ nguyên cấu trúc
+const DATA_DIR   = isVercel ? '/tmp/data' : path.join(__dirname, 'data');
+const UPLOAD_DIR = isVercel ? '/tmp/uploads' : path.join(__dirname, 'public', 'uploads');
+const DATA_FILE  = path.join(DATA_DIR, 'wishes.json');
 
 // Đảm bảo thư mục tồn tại
 if (!fs.existsSync(UPLOAD_DIR))  fs.mkdirSync(UPLOAD_DIR,  { recursive: true });
-if (!fs.existsSync(path.dirname(DATA_FILE))) fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+if (!fs.existsSync(DATA_DIR))    fs.mkdirSync(DATA_DIR,    { recursive: true });
 if (!fs.existsSync(DATA_FILE))   fs.writeFileSync(DATA_FILE, '[]');
 
 // MIME types
@@ -47,11 +53,17 @@ function parseMultipart(buffer, boundary) {
   const parts  = [];
 
   let start = 0;
-  while (start < buffer.length) {
+  let limit = 0; // Fail-safe: Chống vòng lặp vô hạn
+  while (start < buffer.length && limit < 1000) {
+    limit++;
     const idx = buffer.indexOf(sep, start);
     if (idx === -1) break;
     const end = buffer.indexOf(sep, idx + sep.length);
     if (end === -1) break;
+
+    // Đảm bảo con trỏ luôn tiến lên
+    if (end <= start) break;
+
     const part = buffer.slice(idx + sep.length + 2, end - 2);
     parts.push(part);
     start = end;
@@ -141,7 +153,8 @@ const server = http.createServer((req, res) => {
         const filename = 'photo_' + Date.now() + '_' + Math.random().toString(36).slice(2) + ext;
         const dest     = path.join(UPLOAD_DIR, filename);
         fs.writeFileSync(dest, files.photo.data);
-        photoUrl = 'http://localhost:' + PORT + '/uploads/' + filename;
+        // Dùng đường dẫn tương đối thay vì hardcode localhost để chạy tốt trên môi trường deploy
+        photoUrl = '/uploads/' + filename;
       }
 
       const newWish = {
@@ -170,6 +183,31 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ── GET /uploads ──────────────────────────────────────────────
+  // Phục vụ ảnh động từ thư mục tương ứng
+  if (req.method === 'GET' && pathname.startsWith('/uploads/')) {
+    const filename = pathname.replace('/uploads/', '');
+    const filePath = path.join(UPLOAD_DIR, filename);
+
+    // Bảo vệ path traversal
+    if (!filePath.startsWith(UPLOAD_DIR)) {
+        res.writeHead(403); res.end('Forbidden'); return;
+    }
+
+    fs.readFile(filePath, (err, data) => {
+        if (err) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('404 Not Found: ' + pathname);
+            return;
+        }
+        const ext  = path.extname(filePath).toLowerCase();
+        const mime = MIME[ext] || 'application/octet-stream';
+        res.writeHead(200, { 'Content-Type': mime });
+        res.end(data);
+    });
+    return;
+  }
+
   // ── Static files ──────────────────────────────────────────────
   let filePath = path.join(PUBLIC, pathname === '/' ? 'index.html' : pathname);
 
@@ -191,13 +229,20 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log('');
-  console.log('  🎆 Ước Nguyện Pháo Hoa đang chạy!');
-  console.log('');
-  console.log('  📱 Trang form học sinh:  http://localhost:' + PORT + '/');
-  console.log('  🎇 Màn hình LED pháo hoa: http://localhost:' + PORT + '/show.html');
-  console.log('');
-  console.log('  Nhấn Ctrl+C để dừng server');
-  console.log('');
-});
+// Xuất server cho Vercel hoặc chạy trực tiếp trên Local
+if (isVercel) {
+  module.exports = (req, res) => {
+    server.emit('request', req, res);
+  };
+} else {
+  server.listen(PORT, () => {
+    console.log('');
+    console.log('  🎆 Ước Nguyện Pháo Hoa đang chạy!');
+    console.log('');
+    console.log('  📱 Trang form: http://localhost:' + PORT + '/');
+    console.log('  🎇 Màn hình LED: http://localhost:' + PORT + '/show.html');
+    console.log('');
+    console.log('  Nhấn Ctrl+C để dừng server');
+    console.log('');
+  });
+}
