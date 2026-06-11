@@ -110,7 +110,7 @@ const server = http.createServer((req, res) => {
     const safe   = wishes.map(w => ({
       id:    w.id,
       name:  w.name,
-      phone: w.phone, // <--- Cập nhật: Cho phép API trả về số điện thoại
+      phone: w.phone,
       wish:  w.wish,
       photo: w.photo,
       time:  w.time,
@@ -265,6 +265,16 @@ const server = http.createServer((req, res) => {
           async function loadWishes() {
             try {
               const res = await fetch('/api');
+              const contentType = res.headers.get('content-type');
+              
+              // Bắt lỗi nếu Vercel không trả về JSON mà trả về HTML báo lỗi
+              if (!contentType || !contentType.includes('application/json')) {
+                const text = await res.text();
+                console.error("Lỗi server trả về HTML:", text);
+                document.getElementById('wish-list').innerHTML = '<tr><td colspan="6" style="color:red; text-align:center; padding: 20px;"><b>🚨 LỖI MÁY CHỦ VERCEL!</b><br>Hệ thống không thể tải dữ liệu JSON. Quá trình Deploy (Build) của bạn có thể đang bị lỗi hoặc chưa hoàn thành.<br><br>👉 Hãy kiểm tra lại tab <b>Deployments</b> trên Vercel.</td></tr>';
+                return;
+              }
+
               const data = await res.json();
               currentData = data.wishes;
               const list = document.getElementById('wish-list');
@@ -288,7 +298,8 @@ const server = http.createServer((req, res) => {
                 '</tr>';
               }).join('');
             } catch (err) {
-              alert('Lỗi khi tải dữ liệu!');
+              console.error(err);
+              document.getElementById('wish-list').innerHTML = '<tr><td colspan="6" style="color:red; text-align:center;">Đã xảy ra lỗi mạng khi tải dữ liệu!</td></tr>';
             }
           }
 
@@ -314,11 +325,9 @@ const server = http.createServer((req, res) => {
               return;
             }
 
-            // Dùng BOM (\\uFEFF) để báo cho Excel biết đây là file UTF-8, giúp Tiếng Việt không bị lỗi
             let csvContent = "\\uFEFFHọ và Tên,Số điện thoại,Điều ước,Hình ảnh (Link),Thời gian gửi\\n";
             
             currentData.forEach(w => {
-              // Bao bọc chuỗi trong dấu ngoặc kép và escape các dấu ngoặc kép bên trong để tránh vỡ cột CSV
               let name = '"' + (w.name || '').replace(/"/g, '""') + '"';
               let phone = '"' + (w.phone || '').replace(/"/g, '""') + '"';
               let wish = '"' + (w.wish || '').replace(/"/g, '""') + '"';
@@ -328,7 +337,6 @@ const server = http.createServer((req, res) => {
               csvContent += name + ',' + phone + ',' + wish + ',' + photo + ',' + time + '\\n';
             });
 
-            // Tạo và tải xuống file CSV
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
