@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Gửi Ước Nguyện ✨</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: #080b1a;
+    color: #fff;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 20px 16px 40px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Stars background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.8) 0%, transparent 100%),
+      radial-gradient(1px 1px at 25% 45%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 40% 20%, rgba(255,255,255,0.9) 0%, transparent 100%),
+      radial-gradient(1px 1px at 55% 70%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 70% 10%, rgba(255,255,255,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 50%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 80%, rgba(255,255,255,0.8) 0%, transparent 100%),
+      radial-gradient(1px 1px at 15% 85%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 60% 40%, rgba(255,255,255,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 35% 65%, rgba(255,255,255,0.6) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 480px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 28px;
+    padding-top: 10px;
+  }
+
+  .firework-icon {
+    font-size: 52px;
+    display: block;
+    margin-bottom: 10px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+
+  .header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #FFD700, #FF6B9D, #9B59B6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+  }
+
+  .header p {
+    font-size: 14px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.5;
+  }
+
+  /* Photo upload */
+  .photo-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .photo-preview {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,215,0,0.5);
+    background: rgba(255,255,255,0.05);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    transition: border-color 0.3s;
+    margin-bottom: 10px;
+  }
+
+  .photo-preview:hover { border-color: rgba(255,215,0,0.9); }
+  .photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+
+  .photo-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: rgba(255,255,255,0.4);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .photo-placeholder span:first-child { font-size: 28px; }
+
+  .photo-hint {
+    font-size: 12px;
+    color: rgba(255,215,0,0.7);
+    cursor: pointer;
+  }
+
+  #photoInput { display: none; }
+
+  /* Form */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 7px;
+    letter-spacing: 0.3px;
+  }
+
+  label span.required { color: #FF6B9D; margin-left: 2px; }
+
+  input[type="text"],
+  input[type="tel"],
+  textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 16px;
+    font-family: inherit;
+    padding: 13px 16px;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+    -webkit-appearance: none;
+  }
+
+  input[type="text"]:focus,
+  input[type="tel"]:focus,
+  textarea:focus {
+    border-color: rgba(255,215,0,0.6);
+    background: rgba(255,255,255,0.1);
+  }
+
+  input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.25); }
+
+  textarea {
+    resize: none;
+    height: 110px;
+    line-height: 1.5;
+  }
+
+  .char-count {
+    text-align: right;
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 5px;
+  }
+
+  .char-count.warn { color: #FF6B9D; }
+
+  /* Submit button */
+  .submit-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #FF6B9D, #9B59B6);
+    border: none;
+    border-radius: 14px;
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-top: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .submit-btn:active { transform: scale(0.98); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .submit-btn .btn-icon { margin-right: 8px; }
+
+  /* States */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 30px;
+    color: rgba(255,255,255,0.6);
+    font-size: 15px;
+  }
+
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid rgba(255,255,255,0.15);
+    border-top-color: #FFD700;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Success screen */
+  .success-screen {
+    display: none;
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  .success-fireworks {
+    font-size: 64px;
+    display: block;
+    margin-bottom: 16px;
+    animation: celebrate 0.6s ease-out;
+  }
+
+  @keyframes celebrate {
+    0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+    60% { transform: scale(1.2) rotate(5deg); }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+
+  .success-screen h2 {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #FFD700, #FF6B9D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+
+  .success-wish-card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,215,0,0.25);
+    border-radius: 16px;
+    padding: 18px;
+    margin: 20px 0;
+    text-align: left;
+  }
+
+  .success-wish-card .name {
+    font-weight: 600;
+    color: #FFD700;
+    margin-bottom: 6px;
+    font-size: 15px;
+  }
+
+  .success-wish-card .wish-text {
+    color: rgba(255,255,255,0.85);
+    font-size: 15px;
+    line-height: 1.6;
+    font-style: italic;
+  }
+
+  .success-note {
+    font-size: 13px;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.6;
+  }
+
+  .another-btn {
+    margin-top: 20px;
+    padding: 12px 28px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .error-msg {
+    background: rgba(255,80,80,0.15);
+    border: 1px solid rgba(255,80,80,0.3);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    color: #ff8080;
+    margin-bottom: 14px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <span class="firework-icon">🎆</span>
+    <h1>Ước Nguyện Pháo Hoa</h1>
+    <p>Gửi điều ước của bạn lên bầu trời đêm nay ✨</p>
+  </div>
+
+  <!-- Form -->
+  <div id="formSection">
+    <div class="error-msg" id="errorMsg"></div>
+
+    <!-- Photo upload -->
+    <div class="photo-section">
+      <div class="photo-preview" id="photoPreview" onclick="document.getElementById('photoInput').click()">
+        <div class="photo-placeholder" id="photoPlaceholder">
+          <span>📷</span>
+          <span>Thêm ảnh</span>
+        </div>
+        <img id="photoImg" style="display:none" alt="Ảnh của bạn">
+      </div>
+      <div class="photo-hint" onclick="document.getElementById('photoInput').click()">
+        Chạm để chụp / chọn ảnh
+      </div>
+      <input type="file" id="photoInput" accept="image/*" capture="user" onchange="handlePhoto(this)">
+    </div>
+
+    <!-- Name -->
+    <div class="form-group">
+      <label>Họ và tên <span class="required">*</span></label>
+      <input type="text" id="name" placeholder="Nhập họ và tên của bạn" autocomplete="name" maxlength="100">
+    </div>
+
+    <!-- Phone -->
+    <div class="form-group">
+      <label>Số điện thoại</label>
+      <input type="tel" id="phone" placeholder="0xxxxxxxxx" autocomplete="tel" maxlength="15">
+    </div>
+
+    <!-- Wish -->
+    <div class="form-group">
+      <label>Điều ước của bạn <span class="required">*</span></label>
+      <textarea id="wish" placeholder="Hãy viết điều ước từ trái tim bạn..." maxlength="300" oninput="updateCount(this)"></textarea>
+      <div class="char-count" id="charCount">0 / 300</div>
+    </div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submitWish()">
+      <span class="btn-icon">🎇</span> Gửi Ước Nguyện
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loadingSection">
+    <div class="spinner"></div>
+    Đang gửi điều ước của bạn...
+  </div>
+
+  <!-- Success -->
+  <div class="success-screen" id="successSection">
+    <span class="success-fireworks">🎆</span>
+    <h2>Ước nguyện đã bay lên!</h2>
+    <p style="color:rgba(255,255,255,0.55);font-size:14px;margin-bottom:4px">Hãy nhìn lên màn hình lớn nhé 🌟</p>
+
+    <div class="success-wish-card">
+      <div class="name" id="successName"></div>
+      <div class="wish-text" id="successWish"></div>
+    </div>
+
+    <p class="success-note">
+      Điều ước của bạn sẽ xuất hiện trên màn hình LED<br>dưới dạng pháo hoa rực rỡ ✨
+    </p>
+
+    <button class="another-btn" onclick="resetForm()">Gửi thêm điều ước</button>
+  </div>
+</div>
+
+<script>
+function handlePhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('photoImg');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    document.getElementById('photoPlaceholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateCount(el) {
+  const count = el.value.length;
+  const el2 = document.getElementById('charCount');
+  el2.textContent = count + ' / 300';
+  el2.className = 'char-count' + (count > 250 ? ' warn' : '');
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideError() {
+  document.getElementById('errorMsg').style.display = 'none';
+}
+
+async function submitWish() {
+  hideError();
+  const name  = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const wish  = document.getElementById('wish').value.trim();
+  const photo = document.getElementById('photoInput').files[0];
+
+  if (!name) { showError('Vui lòng nhập họ và tên'); return; }
+  if (!wish) { showError('Vui lòng nhập điều ước của bạn'); return; }
+
+  // Show loading
+  document.getElementById('formSection').style.display = 'none';
+  document.getElementById('loadingSection').style.display = 'block';
+
+  const formData = new FormData();
+  formData.append('name', name);
+  formData.append('phone', phone);
+  formData.append('wish', wish);
+  if (photo) formData.append('photo', photo);
+
+  try {
+    const res  = await fetch('/submit', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (data.success) {
+      document.getElementById('loadingSection').style.display = 'none';
+      document.getElementById('successSection').style.display = 'block';
+      document.getElementById('successName').textContent = data.name;
+      document.getElementById('successWish').textContent = '"' + data.wish + '"';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      throw new Error(data.error || 'Có lỗi xảy ra');
+    }
+  } catch (err) {
+    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('formSection').style.display = 'block';
+    showError(err.message || 'Không thể gửi điều ước. Vui lòng thử lại.');
+  }
+}
+
+function resetForm() {
+  document.getElementById('name').value = '';
+  document.getElementById('phone').value = '';
+  document.getElementById('wish').value = '';
+  document.getElementById('photoInput').value = '';
+  document.getElementById('photoImg').style.display = 'none';
+  document.getElementById('photoPlaceholder').style.display = 'flex';
+  updateCount(document.getElementById('wish'));
+  document.getElementById('successSection').style.display = 'none';
+  document.getElementById('formSection').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "uoc-nguyen-phao-hoa",
+  "version": "1.0.0",
+  "description": "Ước Nguyện Pháo Hoa - chạy local",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
